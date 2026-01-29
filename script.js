@@ -27,6 +27,12 @@
         let isUpdatingForecast = false;
         let forecastUpdateTimeouts = [];
 
+        function downloadFromDrive() {
+            const fileId = "12mdeKdxb8kkf8auYlnUHUF0yGedspzR6"; // ใส่ FILE ID ของคุณ
+            const url = `https://drive.google.com/uc?export=download&id=${fileId}`;
+            window.open(url, "_blank");
+        }
+
         async function detectUserLocation() {
             console.log('🛰️ ตรวจหาตำแหน่งจาก IP...');
         
@@ -1048,3 +1054,4 @@
 
         // เรียกใช้เมื่อโหลดหน้าเว็บเสร็จ
         document.addEventListener('DOMContentLoaded', initApp);
+
