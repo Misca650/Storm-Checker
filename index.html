@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storm Checker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" href="/icon/logo.png">
+    <script src="js/script.js"></script>
+</head>
+<body>
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">
+            <span>⛈️</span>
+            <span>กำลังโหลด Storm Checker</span>
+            <div class="loading-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="sky-container" id="skyContainer">
+        <div class="sun" id="sun"></div>
+        <div class="moon" id="moon"></div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="card storm-card">
+                <div class="card-header">
+                    <div class="icon">⛈️</div>
+                    <span>Storm Checker</span>
+                </div>
+            </div>
+
+            <div class="card signal-card">
+                <div class="card-header">
+                    <div class="icon">📡</div>
+                    <span>Signal</span>
+                </div>
+
+                <div class="network-stats">
+                    <div class="stat-item">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-label">Delay :</div>
+                        <div class="stat-value delay-value" id="delay">0.0 ms</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">📶</div>
+                        <div class="stat-label">Ping :</div>
+                        <div class="stat-value ping-value" id="ping">999 ms</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">🌐</div>
+                        <div class="stat-label">API Status :</div>
+                        <div class="stat-value" id="apiStatus">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">📡</div>
+                        <div class="stat-label">Connection :</div>
+                        <div class="stat-value" id="connectionStatus">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon">⚡</div>
+                    <span>Actions</span>
+                </div>
+                <div class="action-buttons">
+                    <button class="action-btn refresh" id="refreshBtn" onclick="refreshWeatherData()">
+                        <span class="action-btn-icon">🔄</span>
+                        <span>ดึงข้อมูลใหม่</span>
+                    </button>
+                    <button class="action-btn" id="resetBtn" onclick="resetAPI()">
+                        <span class="action-btn-icon">🔄</span>
+                        <span>รีเซ็ต API</span>
+                    </button>
+                    <button class="action-btn" id="settingsBtn" onclick="openSettings()">
+                        <span class="action-btn-icon">⚙️</span>
+                        <span>Settings</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-section">
+            <div class="main-checker">
+                <div class="main-header">
+                    <div class="icon">⛈️</div>
+                    <h2>Main Checker</h2>
+                </div>
+
+                <div class="temp-display">
+                    <span class="temp-value" id="mainTemp">24</span>
+                    <span class="temp-unit">°</span>
+                </div>
+
+                <div class="forecast-label">พยากรณ์วันข้างหน้า 1 วัน</div>
+
+                <div class="forecast-wrapper">
+                    <div class="forecast-section">
+                        <div class="forecast-section-label">วันนี้</div>
+                        <div class="forecast-container" id="forecastContainerToday">
+                        </div>
+                    </div>
+                    <div class="forecast-section">
+                        <div class="forecast-section-label">พรุ่งนี้</div>
+                        <div class="forecast-container" id="forecastContainerTomorrow">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>
+                    <span>⚙️</span>
+                    <span>Settings</span>
+                </h3>
+                <button class="modal-close" onclick="closeSettings()">✕</button>
+            </div>
+            <div class="modal-content">
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span>🎨</span>
+                        <span>ธีม (Theme)</span>
+                    </div>
+                    <div class="theme-selector">
+                        <div class="theme-option active" data-theme="dark" onclick="selectTheme('dark')">
+                            <div class="theme-option-icon">🌙</div>
+                            <div class="theme-option-name">Dark Mode</div>
+                        </div>
+                        <div class="theme-option" data-theme="light" onclick="selectTheme('light')">
+                            <div class="theme-option-icon">☀️</div>
+                            <div class="theme-option-name">Light Mode</div>
+                        </div>
+                        <div class="theme-option" data-theme="galaxy" onclick="selectTheme('galaxy')">
+                            <div class="theme-option-icon">🌌</div>
+                            <div class="theme-option-name">Galaxy Mode</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span>📍</span>
+                        <span>Auto Detect Location</span>
+                    </div>
+                    <div class="setting-toggle">
+                        <div class="toggle-switch active" id="autoDetectToggle" onclick="toggleAutoDetect()"></div>
+                        <span id="autoDetectStatus">เปิดอยู่</span>
+                    </div>
+                </div>
+                <div class="city-input-container" id="cityInputContainer">
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <span>🏙️</span>
+                            <span>ชื่อเมือง (City Name)</span>
+                        </div>
+                        <input type="text" class="setting-input" id="settingCityName" placeholder="กรอกชื่อเมือง เช่น Bangkok">
+                        <div style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                            💡 ระบบจะค้นหาพิกัดของเมืองให้อัตโนมัติ
+                        </div>
+                    </div>
+                </div>
+                <div class="setting-item" id="manualLocationContainer">
+                    <div class="setting-label">
+                        <span>📍</span>
+                        <span>ตำแหน่ง (Latitude)</span>
+                    </div>
+                    <input type="number" class="setting-input" id="settingLat" step="0.0001" placeholder="18.7883">
+                </div>
+                <div class="setting-item" id="manualLocationContainer2">
+                    <div class="setting-label">
+                        <span>📍</span>
+                        <span>ตำแหน่ง (Longitude)</span>
+                    </div>
+                    <input type="number" class="setting-input" id="settingLon" step="0.0001" placeholder="98.9853">
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span>🔄</span>
+                        <span>อัพเดทอัตโนมัติ</span>
+                    </div>
+                    <div class="setting-toggle">
+                        <div class="toggle-switch active" id="autoUpdateToggle" onclick="toggleAutoUpdate()"></div>
+                        <span id="autoUpdateStatus">เปิดอยู่</span>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span>⏱️</span>
+                        <span>ช่วงเวลาอัพเดท (นาที)</span>
+                    </div>
+                    <input type="number" class="setting-input" id="settingUpdateInterval" min="1" value="5" placeholder="5">
+                </div>
+                <div class="action-buttons" style="margin-top: 20px;">
+                    <button class="action-btn" onclick="saveSettings()">
+                        <span class="action-btn-icon">💾</span>
+                        <span>บันทึก</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+</body>
+</html>
