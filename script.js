@@ -27,12 +27,6 @@
         let isUpdatingForecast = false;
         let forecastUpdateTimeouts = [];
 
-        function forceDownload() {
-            const fileId = "12mdeKdxb8kkf8auYlnUHUF0yGedspzR6";
-            const url = `https://drive.google.com/uc?export=download&id=${fileId}`;
-            window.location.href = url;
-        }
-
         async function detectUserLocation() {
             console.log('🛰️ ตรวจหาตำแหน่งจาก IP...');
         
