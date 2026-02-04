@@ -2,7 +2,7 @@
 // CONFIG
 // ==========================================
 
-const OPENWEATHER_API_KEY = "PUT_YOUR_KEY_HERE"; // 🔥 ใส่ API Key ของคุณเองตรงนี้
+const OPENWEATHER_API_KEY = "ee0fb9013c07fe1ff3ed140aca491627"; // 🔥 ใส่ API Key ของคุณเองตรงนี้
 
 const LOCATION = {
     lat: 18.7883,
@@ -955,3 +955,4 @@ async function initApp() {
 }
 
 document.addEventListener("DOMContentLoaded", initApp)
+
