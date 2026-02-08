@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Storm Checker</title>
+    <title>Storm Checker Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
         <div class="loading-spinner"></div>
         <div class="loading-text">
             <span>⛈️</span>
-            <span>กำลังโหลด Storm Checker</span>
+            <span>กำลังโหลด Storm Checker Pro</span>
             <div class="loading-dots">
                 <span></span>
                 <span></span>
@@ -35,7 +35,7 @@
             <div class="card storm-card">
                 <div class="card-header">
                     <div class="icon">⛈️</div>
-                    <span>Storm Checker</span>
+                    <span>Storm Checker Pro</span>
                 </div>
             </div>
 
@@ -67,6 +67,15 @@
                         <div class="stat-value" id="connectionStatus">--</div>
                     </div>
                 </div>
+            </div>
+
+            <!-- NEW: Weather Alerts Card -->
+            <div class="card weather-alerts-card" id="weatherAlertsCard" style="display: none;">
+                <div class="card-header">
+                    <div class="icon alert-icon">⚠️</div>
+                    <span>คำเตือนสภาพอากาศ</span>
+                </div>
+                <div id="weatherAlerts"></div>
             </div>
 
             <div class="card">
@@ -105,6 +114,72 @@
                 <div class="temp-display">
                     <span class="temp-value" id="mainTemp">24</span>
                     <span class="temp-unit">°</span>
+                </div>
+
+                <!-- NEW: Feels Like Temperature -->
+                <div class="feels-like-display">
+                    <span class="feels-like-label">ความรู้สึก: </span>
+                    <span class="feels-like-value" id="feelsLike">24°</span>
+                </div>
+
+                <!-- NEW: Advanced Weather Info Grid -->
+                <div class="advanced-weather-grid">
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">💨</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">ความเร็วลม</div>
+                            <div class="weather-info-value" id="windSpeed">0 km/h</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">🧭</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">ทิศทางลม</div>
+                            <div class="weather-info-value" id="windDirection">--</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">🌡️</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">ความกดอากาศ</div>
+                            <div class="weather-info-value" id="pressure">0 hPa</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">☀️</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">UV Index</div>
+                            <div class="weather-info-value" id="uvIndex">--</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">👁️</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">ทัศนวิสัย</div>
+                            <div class="weather-info-value" id="visibility">-- km</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">🌅</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">พระอาทิตย์ขึ้น</div>
+                            <div class="weather-info-value" id="sunrise">--:--</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">🌇</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">พระอาทิตย์ตก</div>
+                            <div class="weather-info-value" id="sunset">--:--</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
+                        <div class="weather-info-icon">🌦️</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">สภาพอากาศ</div>
+                            <div class="weather-info-value" id="weatherDesc">--</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="forecast-label">พยากรณ์วันข้างหน้า 1 วัน</div>
@@ -221,4 +296,3 @@
     <div class="toast" id="toast"></div>
 </body>
 </html>
-

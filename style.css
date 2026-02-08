@@ -26,7 +26,6 @@ body.dark-theme {
     --text-secondary: #b0b0b0;
 }
 
-
 body.light-theme {
     --bg-dark: #f5f5f5;
     --bg-card: #ffffff;
@@ -235,7 +234,7 @@ body.evening::before {
     display: flex;
     gap: 34px;
     flex-wrap: wrap;
-    max-width: 1200px;
+    max-width: 1400px;
     width: 100%;
     align-items: flex-start;
     justify-content: center;
@@ -295,6 +294,80 @@ body.evening::before {
     background: linear-gradient(135deg, #4dff88, #2ea85c);
     border-radius: 8px;
     padding: 4px;
+}
+
+/* NEW: Weather Alerts Card Styling */
+.weather-alerts-card {
+    background: linear-gradient(135deg, var(--bg-card) 0%, #3d2d2d 100%);
+    border: 1px solid rgba(255, 77, 77, 0.2);
+}
+
+.weather-alerts-card .alert-icon {
+    background: linear-gradient(135deg, #ff4d4d, #ff9d42);
+    border-radius: 8px;
+    padding: 4px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.weather-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 12px;
+    border-left: 4px solid;
+    transition: all 0.3s ease;
+}
+
+.weather-alert:last-child {
+    margin-bottom: 0;
+}
+
+.weather-alert:hover {
+    transform: translateX(4px);
+}
+
+.alert-danger {
+    background: rgba(255, 77, 77, 0.1);
+    border-left-color: var(--accent-red);
+}
+
+.alert-warning {
+    background: rgba(255, 157, 66, 0.1);
+    border-left-color: var(--accent-orange);
+}
+
+.alert-info {
+    background: rgba(74, 158, 255, 0.1);
+    border-left-color: var(--accent-blue);
+}
+
+.alert-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.alert-message {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
 }
 
 .network-stats {
@@ -399,7 +472,7 @@ body.evening::before {
 
 .temp-display {
     text-align: center;
-    margin-bottom: 18px;
+    margin-bottom: 8px;
     padding: 18px 0 6px;
 }
 
@@ -427,6 +500,87 @@ body.evening::before {
     color: var(--text-secondary);
     vertical-align: super;
     margin-left: 8px;
+}
+
+/* NEW: Feels Like Temperature */
+.feels-like-display {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.feels-like-label {
+    font-weight: 400;
+}
+
+.feels-like-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--accent-orange);
+}
+
+/* NEW: Advanced Weather Info Grid */
+.advanced-weather-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.weather-info-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.weather-info-item:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.weather-info-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.weather-info-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.weather-info-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 400;
+}
+
+.weather-info-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .forecast-label {
@@ -570,6 +724,12 @@ body.evening::before {
 
     .temp-unit {
         font-size: 30px;
+    }
+
+    .advanced-weather-grid {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        padding: 16px;
     }
 
     .forecast-wrapper {
@@ -996,4 +1156,3 @@ body.evening::before {
 .city-input-container.show {
     display: block;
 }
-

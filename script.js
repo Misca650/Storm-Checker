@@ -18,9 +18,18 @@ let cityName = "";
 // Data
 let weatherData = {
     currentTemp: 24,
+    feelsLike: 24,
     humidity: 0,
     cloudCover: 0,
     weatherCode: 0,
+    weatherDescription: "",
+    windSpeed: 0,
+    windDeg: 0,
+    pressure: 0,
+    visibility: 0,
+    uvIndex: 0,
+    sunrise: 0,
+    sunset: 0,
     forecast: []
 };
 
@@ -99,6 +108,228 @@ function updateNetworkStats(delay, ping) {
             connectionStatusEl.className = "stat-value status-bad";
         }
     }
+}
+
+// ==========================================
+// NEW: ADVANCED WEATHER DISPLAY
+// ==========================================
+
+function updateAdvancedWeatherInfo() {
+    // Wind Speed
+    const windSpeedEl = document.getElementById("windSpeed");
+    if (windSpeedEl) {
+        const windKmh = (weatherData.windSpeed * 3.6).toFixed(1);
+        windSpeedEl.textContent = `${windKmh} km/h`;
+        
+        // Color code based on wind speed
+        if (windKmh > 50) windSpeedEl.style.color = "var(--accent-red)";
+        else if (windKmh > 25) windSpeedEl.style.color = "var(--accent-orange)";
+        else windSpeedEl.style.color = "var(--accent-green)";
+    }
+
+    // Wind Direction
+    const windDirEl = document.getElementById("windDirection");
+    if (windDirEl) {
+        windDirEl.textContent = getWindDirection(weatherData.windDeg);
+    }
+
+    // Pressure
+    const pressureEl = document.getElementById("pressure");
+    if (pressureEl) {
+        pressureEl.textContent = `${weatherData.pressure} hPa`;
+        
+        // Color code based on pressure
+        if (weatherData.pressure < 1000) pressureEl.style.color = "var(--accent-orange)";
+        else if (weatherData.pressure > 1020) pressureEl.style.color = "var(--accent-blue)";
+        else pressureEl.style.color = "var(--text-primary)";
+    }
+
+    // UV Index
+    const uvEl = document.getElementById("uvIndex");
+    if (uvEl) {
+        const uvLevel = getUVLevel(weatherData.uvIndex);
+        uvEl.textContent = `${weatherData.uvIndex} (${uvLevel.text})`;
+        uvEl.style.color = uvLevel.color;
+    }
+
+    // Visibility
+    const visibilityEl = document.getElementById("visibility");
+    if (visibilityEl) {
+        const visKm = (weatherData.visibility / 1000).toFixed(1);
+        visibilityEl.textContent = `${visKm} km`;
+        
+        if (visKm < 1) visibilityEl.style.color = "var(--accent-red)";
+        else if (visKm < 5) visibilityEl.style.color = "var(--accent-orange)";
+        else visibilityEl.style.color = "var(--accent-green)";
+    }
+
+    // Sunrise
+    const sunriseEl = document.getElementById("sunrise");
+    if (sunriseEl && weatherData.sunrise) {
+        sunriseEl.textContent = formatTime(weatherData.sunrise);
+    }
+
+    // Sunset
+    const sunsetEl = document.getElementById("sunset");
+    if (sunsetEl && weatherData.sunset) {
+        sunsetEl.textContent = formatTime(weatherData.sunset);
+    }
+
+    // Weather Description
+    const weatherDescEl = document.getElementById("weatherDesc");
+    if (weatherDescEl) {
+        weatherDescEl.textContent = weatherData.weatherDescription || "--";
+    }
+
+    // Feels Like
+    const feelsLikeEl = document.getElementById("feelsLike");
+    if (feelsLikeEl) {
+        feelsLikeEl.textContent = `${Math.round(weatherData.feelsLike)}°`;
+    }
+}
+
+function getWindDirection(degrees) {
+    const directions = ["เหนือ", "ตะวันออกเฉียงเหนือ", "ตะวันออก", "ตะวันออกเฉียงใต้", 
+                       "ใต้", "ตะวันตกเฉียงใต้", "ตะวันตก", "ตะวันตกเฉียงเหนือ"];
+    const index = Math.round(((degrees % 360) / 45)) % 8;
+    return `${directions[index]} (${degrees}°)`;
+}
+
+function getUVLevel(uv) {
+    if (uv <= 2) return { text: "ต่ำ", color: "var(--accent-green)" };
+    if (uv <= 5) return { text: "ปานกลาง", color: "#FFD700" };
+    if (uv <= 7) return { text: "สูง", color: "var(--accent-orange)" };
+    if (uv <= 10) return { text: "สูงมาก", color: "var(--accent-red)" };
+    return { text: "อันตราย", color: "#8B00FF" };
+}
+
+function formatTime(timestamp) {
+    const date = new Date(timestamp * 1000);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+}
+
+// ==========================================
+// NEW: WEATHER ALERTS SYSTEM
+// ==========================================
+
+function checkWeatherAlerts() {
+    const alerts = [];
+    
+    // Storm Alert (Heavy Rain + Strong Wind)
+    if (weatherData.weatherCode >= 200 && weatherData.weatherCode < 300) {
+        alerts.push({
+            icon: "⛈️",
+            title: "เตือนพายุฝนฟ้าคะนอง",
+            message: "พบสภาพพายุฝนฟ้าคะนอง ควระวังฟ้าผ่าและลมแรง",
+            level: "danger"
+        });
+    }
+    
+    // Heavy Rain Alert
+    if (weatherData.weatherCode >= 500 && weatherData.weatherCode < 600) {
+        const rainIntensity = weatherData.weatherCode;
+        if (rainIntensity >= 520) {
+            alerts.push({
+                icon: "🌧️",
+                title: "เตือนฝนตกหนัก",
+                message: "ฝนตกหนัก ควรหลีกเลี่ยงการเดินทาง",
+                level: "warning"
+            });
+        }
+    }
+    
+    // Strong Wind Alert
+    const windKmh = weatherData.windSpeed * 3.6;
+    if (windKmh > 50) {
+        alerts.push({
+            icon: "💨",
+            title: "เตือนลมแรง",
+            message: `ลมแรงความเร็ว ${windKmh.toFixed(0)} km/h`,
+            level: "warning"
+        });
+    }
+    
+    // High Temperature Alert
+    if (weatherData.currentTemp > 38) {
+        alerts.push({
+            icon: "🔥",
+            title: "เตือนอากาศร้อนจัด",
+            message: `อุณหภูมิสูง ${Math.round(weatherData.currentTemp)}°C ควรดื่มน้ำมากๆ`,
+            level: "warning"
+        });
+    }
+    
+    // Low Temperature Alert
+    if (weatherData.currentTemp < 15) {
+        alerts.push({
+            icon: "❄️",
+            title: "เตือนอากาศหนาว",
+            message: `อุณหภูมิต่ำ ${Math.round(weatherData.currentTemp)}°C ควรแต่งกายอบอุ่น`,
+            level: "info"
+        });
+    }
+    
+    // High UV Alert
+    if (weatherData.uvIndex > 7) {
+        alerts.push({
+            icon: "☀️",
+            title: "เตือน UV สูง",
+            message: `UV Index: ${weatherData.uvIndex} ควรทาครีมกันแดด`,
+            level: "warning"
+        });
+    }
+    
+    // Low Visibility Alert
+    if (weatherData.visibility < 1000) {
+        alerts.push({
+            icon: "🌫️",
+            title: "เตือนทัศนวิสัยต่ำ",
+            message: `ทัศนวิสัย ${(weatherData.visibility/1000).toFixed(1)} km`,
+            level: "warning"
+        });
+    }
+    
+    // Low Pressure Alert (Potential Storm)
+    if (weatherData.pressure < 1000) {
+        alerts.push({
+            icon: "🌀",
+            title: "เตือนความกดอากาศต่ำ",
+            message: "อาจมีพายุเข้ามา ติดตามข่าวสารอย่างใกล้ชิด",
+            level: "warning"
+        });
+    }
+    
+    displayWeatherAlerts(alerts);
+}
+
+function displayWeatherAlerts(alerts) {
+    const alertsCard = document.getElementById("weatherAlertsCard");
+    const alertsContainer = document.getElementById("weatherAlerts");
+    
+    if (!alertsCard || !alertsContainer) return;
+    
+    if (alerts.length === 0) {
+        alertsCard.style.display = "none";
+        return;
+    }
+    
+    alertsCard.style.display = "block";
+    alertsContainer.innerHTML = "";
+    
+    alerts.forEach(alert => {
+        const alertEl = document.createElement("div");
+        alertEl.className = `weather-alert alert-${alert.level}`;
+        alertEl.innerHTML = `
+            <div class="alert-icon">${alert.icon}</div>
+            <div class="alert-content">
+                <div class="alert-title">${alert.title}</div>
+                <div class="alert-message">${alert.message}</div>
+            </div>
+        `;
+        alertsContainer.appendChild(alertEl);
+    });
 }
 
 // ==========================================
@@ -270,6 +501,49 @@ function createRainChanceCard(weatherId, cloudCover) {
     return item;
 }
 
+// NEW: Wind Speed Card
+function createWindSpeedCard(windSpeed) {
+    const item = document.createElement("div");
+    item.className = "forecast-item";
+
+    const bar = document.createElement("div");
+    bar.className = "forecast-bar";
+
+    const fill = document.createElement("div");
+    fill.className = "forecast-fill";
+
+    const windKmh = windSpeed * 3.6;
+    const barHeight = Math.max(10, Math.min(90, (windKmh / 70) * 100));
+
+    if (windKmh > 50) fill.classList.add("high");
+    else if (windKmh > 25) fill.classList.add("medium");
+    else fill.classList.add("low");
+
+    fill.style.height = barHeight + "%";
+    bar.appendChild(fill);
+
+    const icon = document.createElement("div");
+    icon.className = "forecast-icon";
+    icon.textContent = "💨";
+
+    const windDisplay = document.createElement("div");
+    windDisplay.className = "forecast-temp";
+    windDisplay.textContent = windKmh.toFixed(0) + " km/h";
+
+    const title = document.createElement("div");
+    title.className = "forecast-title";
+    title.textContent = "ลม";
+
+    item.title = `ความเร็วลม: ${windKmh.toFixed(1)} km/h`;
+
+    item.appendChild(bar);
+    item.appendChild(icon);
+    item.appendChild(windDisplay);
+    item.appendChild(title);
+
+    return item;
+}
+
 function updateForecast(forecastArray) {
     if (isUpdatingForecast) return;
 
@@ -288,10 +562,11 @@ function updateForecast(forecastArray) {
     const cardsToday = [];
     const cardsTomorrow = [];
 
-    // TODAY
+    // TODAY - Now includes Wind Speed
     cardsToday.push({ card: createHumidityCard(weatherData.humidity), index: 0 });
     cardsToday.push({ card: createTemperatureCard(weatherData.currentTemp), index: 1 });
     cardsToday.push({ card: createRainChanceCard(weatherData.weatherCode, weatherData.cloudCover), index: 2 });
+    cardsToday.push({ card: createWindSpeedCard(weatherData.windSpeed), index: 3 });
 
     // TOMORROW
     if (forecastArray && forecastArray.length > 0) {
@@ -299,6 +574,9 @@ function updateForecast(forecastArray) {
         cardsTomorrow.push({ card: createHumidityCard(tomorrow.humidity), index: 0 });
         cardsTomorrow.push({ card: createTemperatureCard(tomorrow.temp), index: 1 });
         cardsTomorrow.push({ card: createRainChanceCard(tomorrow.weatherCode, tomorrow.cloudCover), index: 2 });
+        if (tomorrow.windSpeed !== undefined) {
+            cardsTomorrow.push({ card: createWindSpeedCard(tomorrow.windSpeed), index: 3 });
+        }
     }
 
     cardsToday.forEach(({ card, index }) => {
@@ -391,7 +669,7 @@ async function detectUserLocation() {
 }
 
 // ==========================================
-// OPENWEATHERMAP FETCH (CURRENT + FORECAST)
+// OPENWEATHERMAP FETCH (CURRENT + FORECAST + UV)
 // ==========================================
 
 async function fetchWeatherData() {
@@ -420,11 +698,35 @@ async function fetchWeatherData() {
         const currentData = await currentRes.json();
 
         weatherData.currentTemp = currentData.main.temp;
+        weatherData.feelsLike = currentData.main.feels_like;
         weatherData.humidity = currentData.main.humidity;
+        weatherData.pressure = currentData.main.pressure;
         weatherData.cloudCover = currentData.clouds?.all || 0;
         weatherData.weatherCode = currentData.weather?.[0]?.id || 0;
+        weatherData.weatherDescription = currentData.weather?.[0]?.description || "";
+        weatherData.windSpeed = currentData.wind?.speed || 0;
+        weatherData.windDeg = currentData.wind?.deg || 0;
+        weatherData.visibility = currentData.visibility || 10000;
+        weatherData.sunrise = currentData.sys?.sunrise || 0;
+        weatherData.sunset = currentData.sys?.sunset || 0;
+
+        // Fetch UV Index (requires OneCall API or separate UV endpoint)
+        // Note: UV data might require a different API endpoint or OneCall API
+        try {
+            const uvUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${LOCATION.lat}&lon=${LOCATION.lon}&appid=${OPENWEATHER_API_KEY}`;
+            const uvRes = await fetch(uvUrl);
+            if (uvRes.ok) {
+                const uvData = await uvRes.json();
+                weatherData.uvIndex = uvData.value || 0;
+            }
+        } catch (uvError) {
+            console.warn("UV data not available:", uvError);
+            weatherData.uvIndex = 0;
+        }
 
         updateMainTemp(weatherData.currentTemp);
+        updateAdvancedWeatherInfo();
+        checkWeatherAlerts();
 
         // Forecast (3-hour intervals)
         const forecastUrl =
@@ -483,6 +785,7 @@ function getTomorrowForecast(list) {
         humidity: best.main.humidity,
         cloudCover: best.clouds?.all || 0,
         weatherCode: best.weather?.[0]?.id || 0,
+        windSpeed: best.wind?.speed || 0,
         date: best.dt_txt
     };
 }
@@ -649,6 +952,16 @@ function closeSettings() {
     if (modal) modal.classList.remove("show");
 }
 
+function toggleAutoDetect() {
+    const toggle = document.getElementById("autoDetectToggle");
+    const status = document.getElementById("autoDetectStatus");
+
+    autoDetectLocation = !autoDetectLocation;
+
+    if (toggle) toggle.classList.toggle("active");
+    if (status) status.textContent = autoDetectLocation ? "เปิดอยู่" : "ปิดอยู่";
+}
+
 // ==========================================
 // AUTO UPDATE
 // ==========================================
@@ -720,9 +1033,18 @@ function resetAPI() {
     if (confirm("คุณต้องการรีเซ็ต API และข้อมูลทั้งหมดหรือไม่?")) {
         weatherData = {
             currentTemp: 24,
+            feelsLike: 24,
             humidity: 0,
             cloudCover: 0,
             weatherCode: 0,
+            weatherDescription: "",
+            windSpeed: 0,
+            windDeg: 0,
+            pressure: 0,
+            visibility: 0,
+            uvIndex: 0,
+            sunrise: 0,
+            sunset: 0,
             forecast: []
         };
 
@@ -747,6 +1069,10 @@ function resetAPI() {
             checkNetworkPerformance();
         }, 500);
     }
+}
+
+function forceDownload() {
+    showToast("💻 ฟีเจอร์นี้กำลังพัฒนา", "info");
 }
 
 // ==========================================
@@ -902,12 +1228,16 @@ function createShootingStars(container) {
 
 function displayWeatherInfo() {
     console.log("=".repeat(50));
-    console.log("🌤️ STORM CHECKER - Weather Info");
+    console.log("🌤️ STORM CHECKER PRO - Weather Info");
     console.log("=".repeat(50));
     console.log(`📍 Location: ${LOCATION.name}`);
-    console.log(`🌡️ Temp: ${weatherData.currentTemp}°C`);
+    console.log(`🌡️ Temp: ${weatherData.currentTemp}°C (Feels: ${weatherData.feelsLike}°C)`);
     console.log(`💧 Humidity: ${weatherData.humidity}%`);
     console.log(`☁️ Cloud: ${weatherData.cloudCover}%`);
+    console.log(`💨 Wind: ${(weatherData.windSpeed * 3.6).toFixed(1)} km/h (${weatherData.windDeg}°)`);
+    console.log(`🌡️ Pressure: ${weatherData.pressure} hPa`);
+    console.log(`☀️ UV Index: ${weatherData.uvIndex}`);
+    console.log(`👁️ Visibility: ${(weatherData.visibility/1000).toFixed(1)} km`);
     console.log(`📶 Ping: ${networkStats.ping} ms`);
     console.log(`⏱️ Delay: ${networkStats.delay.toFixed(1)} ms`);
     console.log("=".repeat(50));
@@ -918,7 +1248,7 @@ function displayWeatherInfo() {
 // ==========================================
 
 async function initApp() {
-    console.log("⛈️ Storm Checker Starting...");
+    console.log("⛈️ Storm Checker Pro Starting...");
 
     loadTheme();
     loadSettings();
@@ -954,5 +1284,4 @@ async function initApp() {
     setInterval(displayWeatherInfo, 300000);
 }
 
-document.addEventListener("DOMContentLoaded", initApp)
-
+document.addEventListener("DOMContentLoaded", initApp);
