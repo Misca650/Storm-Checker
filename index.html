@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Storm Checker Pro</title>
+    <title>Storm Checker Pro - Premium Edition</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Kanit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link rel="icon" href="logo.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="script.js"></script>
 </head>
 <body>
@@ -28,15 +28,18 @@
     <div class="sky-container" id="skyContainer">
         <div class="sun" id="sun"></div>
         <div class="moon" id="moon"></div>
+        <div class="clouds" id="clouds"></div>
     </div>
 
     <div class="container">
+        <!-- Left Sidebar -->
         <div class="sidebar">
             <div class="card storm-card">
                 <div class="card-header">
                     <div class="icon">⛈️</div>
                     <span>Storm Checker Pro</span>
                 </div>
+                <div class="version-badge">Premium v2.0</div>
             </div>
 
             <div class="card signal-card">
@@ -48,34 +51,76 @@
                 <div class="network-stats">
                     <div class="stat-item">
                         <div class="stat-icon">⏱️</div>
-                        <div class="stat-label">Delay :</div>
+                        <div class="stat-label">Delay:</div>
                         <div class="stat-value delay-value" id="delay">0.0 ms</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-icon">📶</div>
-                        <div class="stat-label">Ping :</div>
+                        <div class="stat-label">Ping:</div>
                         <div class="stat-value ping-value" id="ping">999 ms</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-icon">🌐</div>
-                        <div class="stat-label">API Status :</div>
+                        <div class="stat-label">API Status:</div>
                         <div class="stat-value" id="apiStatus">--</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-icon">📡</div>
-                        <div class="stat-label">Connection :</div>
+                        <div class="stat-label">Connection:</div>
                         <div class="stat-value" id="connectionStatus">--</div>
                     </div>
                 </div>
             </div>
 
-            <!-- NEW: Weather Alerts Card -->
+            <!-- NEW: Air Quality Card -->
+            <div class="card air-quality-card">
+                <div class="card-header">
+                    <div class="icon">🌫️</div>
+                    <span>คุณภาพอากาศ</span>
+                </div>
+                <div class="aqi-display">
+                    <div class="aqi-value" id="aqiValue">--</div>
+                    <div class="aqi-label" id="aqiLabel">กำลังโหลด...</div>
+                    <div class="aqi-bar">
+                        <div class="aqi-fill" id="aqiFill"></div>
+                    </div>
+                </div>
+                <div class="aqi-details">
+                    <div class="aqi-detail-item">
+                        <span>PM2.5:</span>
+                        <span id="pm25">-- µg/m³</span>
+                    </div>
+                    <div class="aqi-detail-item">
+                        <span>PM10:</span>
+                        <span id="pm10">-- µg/m³</span>
+                    </div>
+                    <div class="aqi-detail-item">
+                        <span>O₃:</span>
+                        <span id="o3">-- µg/m³</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weather Alerts Card -->
             <div class="card weather-alerts-card" id="weatherAlertsCard" style="display: none;">
                 <div class="card-header">
                     <div class="icon alert-icon">⚠️</div>
                     <span>คำเตือนสภาพอากาศ</span>
                 </div>
                 <div id="weatherAlerts"></div>
+            </div>
+
+            <!-- NEW: Comfort Index Card -->
+            <div class="card comfort-card">
+                <div class="card-header">
+                    <div class="icon">🌡️</div>
+                    <span>ดัชนีความสบาย</span>
+                </div>
+                <div class="comfort-display">
+                    <div class="comfort-emoji" id="comfortEmoji">😊</div>
+                    <div class="comfort-text" id="comfortText">สบาย</div>
+                    <div class="comfort-description" id="comfortDesc">อากาศเหมาะสำหรับกิจกรรมกลางแจ้ง</div>
+                </div>
             </div>
 
             <div class="card">
@@ -88,15 +133,19 @@
                         <span class="action-btn-icon">🔄</span>
                         <span>ดึงข้อมูลใหม่</span>
                     </button>
-                    <button class="action-btn" id="resetBtn" onclick="resetAPI()">
+                    <button class="action-btn" onclick="openCityCompare()">
+                        <span class="action-btn-icon">🌍</span>
+                        <span>เปรียบเทียบเมือง</span>
+                    </button>
+                    <button class="action-btn" onclick="shareWeather()">
+                        <span class="action-btn-icon">📤</span>
+                        <span>แชร์สภาพอากาศ</span>
+                    </button>
+                    <button class="action-btn" onclick="resetAPI()">
                         <span class="action-btn-icon">🔄</span>
                         <span>รีเซ็ต API</span>
                     </button>
-                    <button class="action-btn" id="resetBtn" onclick="forceDownload()">
-                        <span class="action-btn-icon">💻</span>
-                        <span>Download App สำหรับในคอม</span>
-                    </button>
-                    <button class="action-btn" id="settingsBtn" onclick="openSettings()">
+                    <button class="action-btn" onclick="openSettings()">
                         <span class="action-btn-icon">⚙️</span>
                         <span>Settings</span>
                     </button>
@@ -104,25 +153,35 @@
             </div>
         </div>
 
+        <!-- Main Section -->
         <div class="main-section">
             <div class="main-checker">
                 <div class="main-header">
                     <div class="icon">⛈️</div>
                     <h2>Main Checker</h2>
+                    <div class="location-display" id="locationDisplay">
+                        <span class="location-icon">📍</span>
+                        <span id="currentLocation">Chiang Mai</span>
+                    </div>
                 </div>
 
-                <div class="temp-display">
-                    <span class="temp-value" id="mainTemp">24</span>
-                    <span class="temp-unit">°</span>
+                <div class="weather-main-display">
+                    <div class="temp-section">
+                        <div class="animated-weather-icon" id="animatedWeatherIcon">
+                            <div class="weather-animation sunny">☀️</div>
+                        </div>
+                        <div class="temp-display">
+                            <span class="temp-value" id="mainTemp">24</span>
+                            <span class="temp-unit">°</span>
+                        </div>
+                        <div class="feels-like-display">
+                            <span class="feels-like-label">ความรู้สึก: </span>
+                            <span class="feels-like-value" id="feelsLike">24°</span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- NEW: Feels Like Temperature -->
-                <div class="feels-like-display">
-                    <span class="feels-like-label">ความรู้สึก: </span>
-                    <span class="feels-like-value" id="feelsLike">24°</span>
-                </div>
-
-                <!-- NEW: Advanced Weather Info Grid -->
+                <!-- Advanced Weather Info Grid -->
                 <div class="advanced-weather-grid">
                     <div class="weather-info-item">
                         <div class="weather-info-icon">💨</div>
@@ -160,6 +219,13 @@
                         </div>
                     </div>
                     <div class="weather-info-item">
+                        <div class="weather-info-icon">💧</div>
+                        <div class="weather-info-content">
+                            <div class="weather-info-label">ความชื้น</div>
+                            <div class="weather-info-value" id="humidity">-- %</div>
+                        </div>
+                    </div>
+                    <div class="weather-info-item">
                         <div class="weather-info-icon">🌅</div>
                         <div class="weather-info-content">
                             <div class="weather-info-label">พระอาทิตย์ขึ้น</div>
@@ -173,33 +239,37 @@
                             <div class="weather-info-value" id="sunset">--:--</div>
                         </div>
                     </div>
-                    <div class="weather-info-item">
-                        <div class="weather-info-icon">🌦️</div>
-                        <div class="weather-info-content">
-                            <div class="weather-info-label">สภาพอากาศ</div>
-                            <div class="weather-info-value" id="weatherDesc">--</div>
-                        </div>
-                    </div>
                 </div>
 
-                <div class="forecast-label">พยากรณ์วันข้างหน้า 1 วัน</div>
+                <!-- NEW: Weather Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3>📊 พยากรณ์อากาศ 7 วัน</h3>
+                        <div class="chart-tabs">
+                            <button class="chart-tab active" onclick="switchChartView('temp')">อุณหภูมิ</button>
+                            <button class="chart-tab" onclick="switchChartView('humidity')">ความชื้น</button>
+                        </div>
+                    </div>
+                    <canvas id="weatherChart"></canvas>
+                </div>
+
+                <div class="forecast-label">พยากรณ์วันข้างหน้า</div>
 
                 <div class="forecast-wrapper">
                     <div class="forecast-section">
                         <div class="forecast-section-label">วันนี้</div>
-                        <div class="forecast-container" id="forecastContainerToday">
-                        </div>
+                        <div class="forecast-container" id="forecastContainerToday"></div>
                     </div>
                     <div class="forecast-section">
                         <div class="forecast-section-label">พรุ่งนี้</div>
-                        <div class="forecast-container" id="forecastContainerTomorrow">
-                        </div>
+                        <div class="forecast-container" id="forecastContainerTomorrow"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Settings Modal -->
     <div class="modal-overlay" id="settingsModal">
         <div class="modal">
             <div class="modal-header">
@@ -289,6 +359,31 @@
                         <span>บันทึก</span>
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: City Compare Modal -->
+    <div class="modal-overlay" id="cityCompareModal">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h3>
+                    <span>🌍</span>
+                    <span>เปรียบเทียบสภาพอากาศ</span>
+                </h3>
+                <button class="modal-close" onclick="closeCityCompare()">✕</button>
+            </div>
+            <div class="modal-content">
+                <div class="city-compare-inputs">
+                    <input type="text" class="setting-input" id="compareCity1" placeholder="เมืองที่ 1 (เช่น Bangkok)" value="Bangkok">
+                    <input type="text" class="setting-input" id="compareCity2" placeholder="เมืองที่ 2 (เช่น Tokyo)" value="Tokyo">
+                    <input type="text" class="setting-input" id="compareCity3" placeholder="เมืองที่ 3 (เช่น New York)" value="New York">
+                    <button class="action-btn" onclick="compareCities()">
+                        <span class="action-btn-icon">🔍</span>
+                        <span>เปรียบเทียบ</span>
+                    </button>
+                </div>
+                <div id="compareResults" class="compare-results"></div>
             </div>
         </div>
     </div>

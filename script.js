@@ -2,7 +2,8 @@
 // CONFIG
 // ==========================================
 
-const OPENWEATHER_API_KEY = "ee0fb9013c07fe1ff3ed140aca491627"; // 🔥 ใส่ API Key ของคุณเองตรงนี้
+const OPENWEATHER_API_KEY = "ee0fb9013c07fe1ff3ed140aca491627";
+const AQICN_API_KEY = "demo"; // ใช้ demo key หรือสมัครที่ https://aqicn.org/data-platform/token/
 
 const LOCATION = {
     lat: 18.7883,
@@ -30,13 +31,29 @@ let weatherData = {
     uvIndex: 0,
     sunrise: 0,
     sunset: 0,
-    forecast: []
+    forecast: [],
+    forecast7days: []
+};
+
+let aqiData = {
+    aqi: 0,
+    pm25: 0,
+    pm10: 0,
+    o3: 0,
+    no2: 0,
+    so2: 0,
+    co: 0,
+    status: "กำลังโหลด..."
 };
 
 let networkStats = {
     delay: 0.0,
     ping: 0
 };
+
+// Chart
+let weatherChart = null;
+let currentChartView = 'temp';
 
 // Forecast Update Protection
 let isUpdatingForecast = false;
@@ -111,7 +128,38 @@ function updateNetworkStats(delay, ping) {
 }
 
 // ==========================================
-// NEW: ADVANCED WEATHER DISPLAY
+// WEATHER ANIMATION
+// ==========================================
+
+function updateWeatherAnimation(weatherCode) {
+    const animationEl = document.querySelector('.weather-animation');
+    if (!animationEl) return;
+
+    animationEl.className = 'weather-animation';
+    
+    if (weatherCode >= 200 && weatherCode < 300) {
+        animationEl.textContent = '⛈️';
+        animationEl.classList.add('stormy');
+    } else if (weatherCode >= 300 && weatherCode < 600) {
+        animationEl.textContent = '🌧️';
+        animationEl.classList.add('rainy');
+    } else if (weatherCode >= 600 && weatherCode < 700) {
+        animationEl.textContent = '❄️';
+        animationEl.classList.add('snowy');
+    } else if (weatherCode >= 700 && weatherCode < 800) {
+        animationEl.textContent = '🌫️';
+        animationEl.classList.add('foggy');
+    } else if (weatherCode === 800) {
+        animationEl.textContent = '☀️';
+        animationEl.classList.add('sunny');
+    } else if (weatherCode > 800) {
+        animationEl.textContent = '☁️';
+        animationEl.classList.add('cloudy');
+    }
+}
+
+// ==========================================
+// ADVANCED WEATHER DISPLAY
 // ==========================================
 
 function updateAdvancedWeatherInfo() {
@@ -121,7 +169,6 @@ function updateAdvancedWeatherInfo() {
         const windKmh = (weatherData.windSpeed * 3.6).toFixed(1);
         windSpeedEl.textContent = `${windKmh} km/h`;
         
-        // Color code based on wind speed
         if (windKmh > 50) windSpeedEl.style.color = "var(--accent-red)";
         else if (windKmh > 25) windSpeedEl.style.color = "var(--accent-orange)";
         else windSpeedEl.style.color = "var(--accent-green)";
@@ -138,7 +185,6 @@ function updateAdvancedWeatherInfo() {
     if (pressureEl) {
         pressureEl.textContent = `${weatherData.pressure} hPa`;
         
-        // Color code based on pressure
         if (weatherData.pressure < 1000) pressureEl.style.color = "var(--accent-orange)";
         else if (weatherData.pressure > 1020) pressureEl.style.color = "var(--accent-blue)";
         else pressureEl.style.color = "var(--text-primary)";
@@ -163,6 +209,12 @@ function updateAdvancedWeatherInfo() {
         else visibilityEl.style.color = "var(--accent-green)";
     }
 
+    // Humidity
+    const humidityEl = document.getElementById("humidity");
+    if (humidityEl) {
+        humidityEl.textContent = `${weatherData.humidity}%`;
+    }
+
     // Sunrise
     const sunriseEl = document.getElementById("sunrise");
     if (sunriseEl && weatherData.sunrise) {
@@ -175,17 +227,14 @@ function updateAdvancedWeatherInfo() {
         sunsetEl.textContent = formatTime(weatherData.sunset);
     }
 
-    // Weather Description
-    const weatherDescEl = document.getElementById("weatherDesc");
-    if (weatherDescEl) {
-        weatherDescEl.textContent = weatherData.weatherDescription || "--";
-    }
-
     // Feels Like
     const feelsLikeEl = document.getElementById("feelsLike");
     if (feelsLikeEl) {
         feelsLikeEl.textContent = `${Math.round(weatherData.feelsLike)}°`;
     }
+
+    // Update weather animation
+    updateWeatherAnimation(weatherData.weatherCode);
 }
 
 function getWindDirection(degrees) {
@@ -211,13 +260,456 @@ function formatTime(timestamp) {
 }
 
 // ==========================================
-// NEW: WEATHER ALERTS SYSTEM
+// AIR QUALITY INDEX (AQI)
+// ==========================================
+
+async function fetchAQI() {
+    try {
+        const url = `https://api.waqi.info/feed/geo:${LOCATION.lat};${LOCATION.lon}/?token=${AQICN_API_KEY}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.status === "ok") {
+            const aqi = data.data.aqi;
+            aqiData.aqi = aqi;
+            aqiData.pm25 = data.data.iaqi?.pm25?.v || 0;
+            aqiData.pm10 = data.data.iaqi?.pm10?.v || 0;
+            aqiData.o3 = data.data.iaqi?.o3?.v || 0;
+            aqiData.no2 = data.data.iaqi?.no2?.v || 0;
+            aqiData.so2 = data.data.iaqi?.so2?.v || 0;
+            aqiData.co = data.data.iaqi?.co?.v || 0;
+            
+            updateAQIDisplay();
+        } else {
+            console.warn("AQI data not available");
+            aqiData.status = "ไม่มีข้อมูล";
+            updateAQIDisplay();
+        }
+    } catch (error) {
+        console.error("Error fetching AQI:", error);
+        aqiData.status = "เกิดข้อผิดพลาด";
+        updateAQIDisplay();
+    }
+}
+
+function updateAQIDisplay() {
+    const aqiValueEl = document.getElementById("aqiValue");
+    const aqiLabelEl = document.getElementById("aqiLabel");
+    const aqiFillEl = document.getElementById("aqiFill");
+    const pm25El = document.getElementById("pm25");
+    const pm10El = document.getElementById("pm10");
+    const o3El = document.getElementById("o3");
+
+    if (aqiValueEl && aqiData.aqi > 0) {
+        aqiValueEl.textContent = aqiData.aqi;
+        
+        const aqiLevel = getAQILevel(aqiData.aqi);
+        if (aqiLabelEl) aqiLabelEl.textContent = aqiLevel.text;
+        if (aqiFillEl) {
+            aqiFillEl.style.width = `${Math.min((aqiData.aqi / 300) * 100, 100)}%`;
+            aqiFillEl.style.background = aqiLevel.color;
+        }
+        if (aqiValueEl) {
+            aqiValueEl.style.background = aqiLevel.color;
+            aqiValueEl.style.webkitBackgroundClip = "text";
+            aqiValueEl.style.webkitTextFillColor = "transparent";
+        }
+    } else if (aqiLabelEl) {
+        aqiLabelEl.textContent = aqiData.status;
+    }
+
+    if (pm25El) pm25El.textContent = `${aqiData.pm25} µg/m³`;
+    if (pm10El) pm10El.textContent = `${aqiData.pm10} µg/m³`;
+    if (o3El) o3El.textContent = `${aqiData.o3} µg/m³`;
+}
+
+function getAQILevel(aqi) {
+    if (aqi <= 50) return { text: "ดีมาก", color: "linear-gradient(135deg, #4dff88, #00d4aa)" };
+    if (aqi <= 100) return { text: "ดี", color: "linear-gradient(135deg, #FFD700, #FFA500)" };
+    if (aqi <= 150) return { text: "ปานกลาง", color: "linear-gradient(135deg, #ff9d42, #ff7700)" };
+    if (aqi <= 200) return { text: "แย่", color: "linear-gradient(135deg, #ff4d4d, #ff0000)" };
+    if (aqi <= 300) return { text: "แย่มาก", color: "linear-gradient(135deg, #8B00FF, #4B0082)" };
+    return { text: "อันตราย", color: "linear-gradient(135deg, #800000, #400000)" };
+}
+
+// ==========================================
+// COMFORT INDEX
+// ==========================================
+
+function updateComfortIndex() {
+    const temp = weatherData.currentTemp;
+    const humidity = weatherData.humidity;
+    const windSpeed = weatherData.windSpeed * 3.6;
+
+    const emojiEl = document.getElementById("comfortEmoji");
+    const textEl = document.getElementById("comfortText");
+    const descEl = document.getElementById("comfortDesc");
+
+    if (!emojiEl || !textEl || !descEl) return;
+
+    // Calculate comfort index based on temperature, humidity, and wind
+    let comfort = "";
+    let emoji = "";
+    let desc = "";
+
+    if (temp < 15) {
+        comfort = "หนาวมาก";
+        emoji = "🥶";
+        desc = "สวมเสื้อกันหนาว แนะนำให้อยู่ในที่ร่ม";
+    } else if (temp < 20) {
+        comfort = "หนาว";
+        emoji = "😰";
+        desc = "อากาศเย็นสบาย เหมาะกับการพักผ่อน";
+    } else if (temp < 25) {
+        comfort = "เย็นสบาย";
+        emoji = "😌";
+        desc = "อากาศดีมาก เหมาะสำหรับกิจกรรมกลางแจ้ง";
+    } else if (temp < 28) {
+        comfort = "สบาย";
+        emoji = "😊";
+        desc = "อากาศดี เหมาะสำหรับทุกกิจกรรม";
+    } else if (temp < 32) {
+        comfort = "อบอุ่น";
+        emoji = "😅";
+        desc = "ค่อนข้างร้อน แนะนำให้ดื่มน้ำมากๆ";
+    } else if (temp < 36) {
+        comfort = "ร้อน";
+        emoji = "🥵";
+        desc = "ร้อนมาก ควรหลีกเลี่ยงแดดจัด";
+    } else {
+        comfort = "ร้อนจัด";
+        emoji = "🔥";
+        desc = "อันตราย! อยู่ในที่ร่มและดื่มน้ำมากๆ";
+    }
+
+    // Adjust for humidity
+    if (humidity > 80 && temp > 28) {
+        desc += " อากาศชื้นมาก";
+    }
+
+    // Adjust for wind
+    if (windSpeed > 30) {
+        desc += " ลมแรง";
+    }
+
+    emojiEl.textContent = emoji;
+    textEl.textContent = comfort;
+    descEl.textContent = desc;
+}
+
+// ==========================================
+// WEATHER CHART (7 DAYS)
+// ==========================================
+
+async function fetch7DayForecast() {
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${LOCATION.lat}&lon=${LOCATION.lon}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.list) {
+            // Group by day and get daily average
+            const dailyData = {};
+            data.list.forEach(item => {
+                const date = new Date(item.dt * 1000).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric' });
+                if (!dailyData[date]) {
+                    dailyData[date] = {
+                        temps: [],
+                        humidity: [],
+                        date: date
+                    };
+                }
+                dailyData[date].temps.push(item.main.temp);
+                dailyData[date].humidity.push(item.main.humidity);
+            });
+
+            weatherData.forecast7days = Object.values(dailyData).slice(0, 7).map(day => ({
+                date: day.date,
+                temp: Math.round(day.temps.reduce((a, b) => a + b) / day.temps.length),
+                humidity: Math.round(day.humidity.reduce((a, b) => a + b) / day.humidity.length)
+            }));
+
+            updateWeatherChart();
+        }
+    } catch (error) {
+        console.error("Error fetching 7-day forecast:", error);
+    }
+}
+
+function updateWeatherChart() {
+    const canvas = document.getElementById('weatherChart');
+    if (!canvas || !weatherData.forecast7days.length) return;
+
+    const ctx = canvas.getContext('2d');
+
+    if (weatherChart) {
+        weatherChart.destroy();
+    }
+
+    const labels = weatherData.forecast7days.map(d => d.date);
+    const dataValues = currentChartView === 'temp' 
+        ? weatherData.forecast7days.map(d => d.temp)
+        : weatherData.forecast7days.map(d => d.humidity);
+
+    weatherChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: currentChartView === 'temp' ? 'อุณหภูมิ (°C)' : 'ความชื้น (%)',
+                data: dataValues,
+                borderColor: currentChartView === 'temp' ? '#4a9eff' : '#4dff88',
+                backgroundColor: currentChartView === 'temp' 
+                    ? 'rgba(74, 158, 255, 0.1)' 
+                    : 'rgba(77, 255, 136, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointBackgroundColor: currentChartView === 'temp' ? '#4a9eff' : '#4dff88',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: {
+                        color: '#ffffff',
+                        font: {
+                            family: 'Kanit',
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#4a9eff',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return currentChartView === 'temp' 
+                                ? `${context.parsed.y}°C`
+                                : `${context.parsed.y}%`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    ticks: {
+                        color: '#b0b0b0',
+                        font: {
+                            family: 'Kanit',
+                            size: 11
+                        },
+                        callback: function(value) {
+                            return currentChartView === 'temp' ? `${value}°` : `${value}%`;
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#b0b0b0',
+                        font: {
+                            family: 'Kanit',
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function switchChartView(view) {
+    currentChartView = view;
+    
+    // Update button states
+    const tabs = document.querySelectorAll('.chart-tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    updateWeatherChart();
+}
+
+// ==========================================
+// CITY COMPARISON
+// ==========================================
+
+function openCityCompare() {
+    const modal = document.getElementById('cityCompareModal');
+    if (modal) {
+        modal.classList.add('show');
+    }
+}
+
+function closeCityCompare() {
+    const modal = document.getElementById('cityCompareModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+}
+
+async function compareCities() {
+    const city1 = document.getElementById('compareCity1')?.value;
+    const city2 = document.getElementById('compareCity2')?.value;
+    const city3 = document.getElementById('compareCity3')?.value;
+
+    const cities = [city1, city2, city3].filter(c => c && c.trim());
+    
+    if (cities.length === 0) {
+        showToast("กรุณากรอกชื่อเมืองอย่างน้อย 1 เมือง", "error");
+        return;
+    }
+
+    showToast("กำลังเปรียบเทียบเมือง...", "info");
+
+    const resultsContainer = document.getElementById('compareResults');
+    if (resultsContainer) {
+        resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">กำลังโหลด...</div>';
+    }
+
+    const cityDataPromises = cities.map(city => fetchCityWeather(city));
+    const cityData = await Promise.all(cityDataPromises);
+
+    displayCityComparison(cityData);
+}
+
+async function fetchCityWeather(cityName) {
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${cityName}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.cod === 200) {
+            return {
+                name: data.name,
+                country: data.sys.country,
+                temp: Math.round(data.main.temp),
+                feelsLike: Math.round(data.main.feels_like),
+                humidity: data.main.humidity,
+                windSpeed: (data.wind.speed * 3.6).toFixed(1),
+                description: data.weather[0].description,
+                icon: getWeatherIcon(data.weather[0].id)
+            };
+        }
+    } catch (error) {
+        console.error(`Error fetching weather for ${cityName}:`, error);
+    }
+    return null;
+}
+
+function getWeatherIcon(weatherCode) {
+    if (weatherCode >= 200 && weatherCode < 300) return '⛈️';
+    if (weatherCode >= 300 && weatherCode < 600) return '🌧️';
+    if (weatherCode >= 600 && weatherCode < 700) return '❄️';
+    if (weatherCode >= 700 && weatherCode < 800) return '🌫️';
+    if (weatherCode === 800) return '☀️';
+    return '☁️';
+}
+
+function displayCityComparison(cityData) {
+    const resultsContainer = document.getElementById('compareResults');
+    if (!resultsContainer) return;
+
+    const validData = cityData.filter(c => c !== null);
+
+    if (validData.length === 0) {
+        resultsContainer.innerHTML = '<div style="text-align: center; color: var(--accent-red);">ไม่พบข้อมูลเมือง</div>';
+        showToast("ไม่พบข้อมูลเมืองที่ค้นหา", "error");
+        return;
+    }
+
+    resultsContainer.innerHTML = validData.map(city => `
+        <div class="compare-city-card">
+            <div class="compare-city-name">
+                <span>${city.icon}</span>
+                <span>${city.name}, ${city.country}</span>
+            </div>
+            <div class="compare-temp">${city.temp}°C</div>
+            <div class="compare-info">
+                <div class="compare-info-item">
+                    <span class="compare-info-label">ความรู้สึก:</span>
+                    <span class="compare-info-value">${city.feelsLike}°C</span>
+                </div>
+                <div class="compare-info-item">
+                    <span class="compare-info-label">ความชื้น:</span>
+                    <span class="compare-info-value">${city.humidity}%</span>
+                </div>
+                <div class="compare-info-item">
+                    <span class="compare-info-label">ลม:</span>
+                    <span class="compare-info-value">${city.windSpeed} km/h</span>
+                </div>
+                <div class="compare-info-item">
+                    <span class="compare-info-label">สภาพอากาศ:</span>
+                    <span class="compare-info-value">${city.description}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    showToast(`เปรียบเทียบ ${validData.length} เมืองสำเร็จ`, "success");
+}
+
+// ==========================================
+// SHARE WEATHER
+// ==========================================
+
+function shareWeather() {
+    const shareText = `🌤️ สภาพอากาศ ${LOCATION.name}
+🌡️ อุณหภูมิ: ${weatherData.currentTemp}°C (ความรู้สึก ${weatherData.feelsLike}°C)
+💧 ความชื้น: ${weatherData.humidity}%
+💨 ลม: ${(weatherData.windSpeed * 3.6).toFixed(1)} km/h
+🌫️ AQI: ${aqiData.aqi || 'N/A'}
+
+ตรวจสอบโดย Storm Checker Pro`;
+
+    if (navigator.share) {
+        navigator.share({
+            title: 'สภาพอากาศ ' + LOCATION.name,
+            text: shareText
+        }).then(() => {
+            showToast("แชร์สำเร็จ!", "success");
+        }).catch(err => {
+            console.log('Error sharing:', err);
+            copyToClipboard(shareText);
+        });
+    } else {
+        copyToClipboard(shareText);
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("คัดลอกข้อมูลแล้ว!", "success");
+    }).catch(err => {
+        console.error('Could not copy text:', err);
+        showToast("ไม่สามารถคัดลอกข้อมูลได้", "error");
+    });
+}
+
+// ==========================================
+// WEATHER ALERTS SYSTEM
 // ==========================================
 
 function checkWeatherAlerts() {
     const alerts = [];
     
-    // Storm Alert (Heavy Rain + Strong Wind)
     if (weatherData.weatherCode >= 200 && weatherData.weatherCode < 300) {
         alerts.push({
             icon: "⛈️",
@@ -227,7 +719,6 @@ function checkWeatherAlerts() {
         });
     }
     
-    // Heavy Rain Alert
     if (weatherData.weatherCode >= 500 && weatherData.weatherCode < 600) {
         const rainIntensity = weatherData.weatherCode;
         if (rainIntensity >= 520) {
@@ -240,7 +731,6 @@ function checkWeatherAlerts() {
         }
     }
     
-    // Strong Wind Alert
     const windKmh = weatherData.windSpeed * 3.6;
     if (windKmh > 50) {
         alerts.push({
@@ -251,7 +741,6 @@ function checkWeatherAlerts() {
         });
     }
     
-    // High Temperature Alert
     if (weatherData.currentTemp > 38) {
         alerts.push({
             icon: "🔥",
@@ -261,705 +750,424 @@ function checkWeatherAlerts() {
         });
     }
     
-    // Low Temperature Alert
-    if (weatherData.currentTemp < 15) {
-        alerts.push({
-            icon: "❄️",
-            title: "เตือนอากาศหนาว",
-            message: `อุณหภูมิต่ำ ${Math.round(weatherData.currentTemp)}°C ควรแต่งกายอบอุ่น`,
-            level: "info"
-        });
-    }
-    
-    // High UV Alert
-    if (weatherData.uvIndex > 7) {
-        alerts.push({
-            icon: "☀️",
-            title: "เตือน UV สูง",
-            message: `UV Index: ${weatherData.uvIndex} ควรทาครีมกันแดด`,
-            level: "warning"
-        });
-    }
-    
-    // Low Visibility Alert
-    if (weatherData.visibility < 1000) {
+    if (aqiData.aqi > 150) {
         alerts.push({
             icon: "🌫️",
-            title: "เตือนทัศนวิสัยต่ำ",
-            message: `ทัศนวิสัย ${(weatherData.visibility/1000).toFixed(1)} km`,
+            title: "เตือนคุณภาพอากาศแย่",
+            message: `AQI ${aqiData.aqi} ควรหลีกเลี่ยงกิจกรรมกลางแจ้ง`,
             level: "warning"
         });
     }
-    
-    // Low Pressure Alert (Potential Storm)
-    if (weatherData.pressure < 1000) {
-        alerts.push({
-            icon: "🌀",
-            title: "เตือนความกดอากาศต่ำ",
-            message: "อาจมีพายุเข้ามา ติดตามข่าวสารอย่างใกล้ชิด",
-            level: "warning"
-        });
-    }
-    
-    displayWeatherAlerts(alerts);
+
+    updateWeatherAlerts(alerts);
 }
 
-function displayWeatherAlerts(alerts) {
+function updateWeatherAlerts(alerts) {
     const alertsCard = document.getElementById("weatherAlertsCard");
     const alertsContainer = document.getElementById("weatherAlerts");
-    
+
     if (!alertsCard || !alertsContainer) return;
-    
+
     if (alerts.length === 0) {
         alertsCard.style.display = "none";
         return;
     }
-    
+
     alertsCard.style.display = "block";
-    alertsContainer.innerHTML = "";
-    
-    alerts.forEach(alert => {
-        const alertEl = document.createElement("div");
-        alertEl.className = `weather-alert alert-${alert.level}`;
-        alertEl.innerHTML = `
+    alertsContainer.innerHTML = alerts.map(alert => `
+        <div class="weather-alert alert-${alert.level}">
             <div class="alert-icon">${alert.icon}</div>
             <div class="alert-content">
                 <div class="alert-title">${alert.title}</div>
                 <div class="alert-message">${alert.message}</div>
             </div>
-        `;
-        alertsContainer.appendChild(alertEl);
-    });
+        </div>
+    `).join('');
 }
 
 // ==========================================
-// WEATHER ICON (OpenWeatherMap ID Mapping)
+// FETCH WEATHER DATA
 // ==========================================
 
-function getWeatherIcon(weatherId, cloudCover = 0) {
-    // Thunderstorm
-    if (weatherId >= 200 && weatherId < 300) return "⛈️";
+async function fetchWeatherData() {
+    const startTime = performance.now();
 
-    // Drizzle
-    if (weatherId >= 300 && weatherId < 400) return "🌦️";
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${LOCATION.lat}&lon=${LOCATION.lon}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
 
-    // Rain
-    if (weatherId >= 500 && weatherId < 600) return "🌧️";
+        const endTime = performance.now();
+        networkStats.delay = endTime - startTime;
 
-    // Snow
-    if (weatherId >= 600 && weatherId < 700) return "❄️";
+        if (data.cod === 200) {
+            weatherData.currentTemp = data.main.temp;
+            weatherData.feelsLike = data.main.feels_like;
+            weatherData.humidity = data.main.humidity;
+            weatherData.cloudCover = data.clouds.all;
+            weatherData.weatherCode = data.weather[0].id;
+            weatherData.weatherDescription = data.weather[0].description;
+            weatherData.windSpeed = data.wind.speed;
+            weatherData.windDeg = data.wind.deg;
+            weatherData.pressure = data.main.pressure;
+            weatherData.visibility = data.visibility;
+            weatherData.sunrise = data.sys.sunrise;
+            weatherData.sunset = data.sys.sunset;
 
-    // Atmosphere (fog, mist, etc)
-    if (weatherId >= 700 && weatherId < 800) return "🌫️";
+            updateMainTemp(weatherData.currentTemp);
+            updateAdvancedWeatherInfo();
+            updateComfortIndex();
+            checkWeatherAlerts();
 
-    // Clear
-    if (weatherId === 800) return "☀️";
+            const locationEl = document.getElementById('currentLocation');
+            if (locationEl) locationEl.textContent = data.name;
 
-    // Clouds
-    if (weatherId > 800 && weatherId < 900) {
-        if (cloudCover > 70) return "☁️";
-        return "⛅";
+            await fetchUVIndex();
+            await fetchHourlyForecast();
+            await fetchAQI();
+            await fetch7DayForecast();
+
+            showToast("✅ อัพเดทข้อมูลสำเร็จ", "success");
+        } else {
+            throw new Error(data.message || "Unknown error");
+        }
+    } catch (error) {
+        console.error("Error fetching weather:", error);
+        showToast("⚠️ ไม่สามารถดึงข้อมูลสภาพอากาศได้", "error");
+    }
+}
+
+async function fetchUVIndex() {
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/uvi?lat=${LOCATION.lat}&lon=${LOCATION.lon}&appid=${OPENWEATHER_API_KEY}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.value !== undefined) {
+            weatherData.uvIndex = Math.round(data.value);
+            updateAdvancedWeatherInfo();
+        }
+    } catch (error) {
+        console.error("Error fetching UV index:", error);
+    }
+}
+
+async function fetchHourlyForecast() {
+    try {
+        const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${LOCATION.lat}&lon=${LOCATION.lon}&appid=${OPENWEATHER_API_KEY}&units=metric`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.list) {
+            const now = new Date();
+            const todayStr = now.toLocaleDateString();
+            const tomorrowStr = new Date(now.getTime() + 86400000).toLocaleDateString();
+
+            weatherData.forecast = data.list.slice(0, 16);
+            updateForecastDisplay(todayStr, tomorrowStr);
+        }
+    } catch (error) {
+        console.error("Error fetching forecast:", error);
+    }
+}
+
+function updateForecastDisplay(todayStr, tomorrowStr) {
+    if (isUpdatingForecast) {
+        console.warn("Forecast update already in progress");
+        return;
     }
 
-    return "🌡️";
-}
-
-// ==========================================
-// FORECAST CARDS
-// ==========================================
-
-function createHumidityCard(humidity) {
-    const item = document.createElement("div");
-    item.className = "forecast-item";
-
-    const bar = document.createElement("div");
-    bar.className = "forecast-bar";
-
-    const fill = document.createElement("div");
-    fill.className = "forecast-fill";
-
-    const barHeight = Math.max(10, Math.min(90, humidity));
-
-    if (humidity >= 70) fill.classList.add("high");
-    else if (humidity >= 40) fill.classList.add("medium");
-    else fill.classList.add("low");
-
-    fill.style.height = barHeight + "%";
-    bar.appendChild(fill);
-
-    const icon = document.createElement("div");
-    icon.className = "forecast-icon";
-    icon.textContent = "💧";
-
-    const temp = document.createElement("div");
-    temp.className = "forecast-temp";
-    temp.textContent = Math.round(humidity) + "%";
-
-    const title = document.createElement("div");
-    title.className = "forecast-title";
-    title.textContent = "ความชื้น";
-
-    item.title = `ความชื้นในอากาศ: ${Math.round(humidity)}%`;
-
-    item.appendChild(bar);
-    item.appendChild(icon);
-    item.appendChild(temp);
-    item.appendChild(title);
-
-    return item;
-}
-
-function createTemperatureCard(temp) {
-    const item = document.createElement("div");
-    item.className = "forecast-item";
-
-    const bar = document.createElement("div");
-    bar.className = "forecast-bar";
-
-    const fill = document.createElement("div");
-    fill.className = "forecast-fill";
-
-    const minTemp = 15;
-    const maxTemp = 40;
-    const normalizedTemp = ((temp - minTemp) / (maxTemp - minTemp)) * 100;
-    const barHeight = Math.max(10, Math.min(90, normalizedTemp));
-
-    if (temp >= 32) fill.classList.add("high");
-    else if (temp >= 24) fill.classList.add("medium");
-    else fill.classList.add("low");
-
-    fill.style.height = barHeight + "%";
-    bar.appendChild(fill);
-
-    const icon = document.createElement("div");
-    icon.className = "forecast-icon";
-    icon.textContent = "🌡️";
-
-    const tempDisplay = document.createElement("div");
-    tempDisplay.className = "forecast-temp";
-    tempDisplay.textContent = Math.round(temp) + "°";
-
-    const title = document.createElement("div");
-    title.className = "forecast-title";
-    title.textContent = "อุณหภูมิ";
-
-    item.title = `อุณหภูมิ: ${Math.round(temp)}°C`;
-
-    item.appendChild(bar);
-    item.appendChild(icon);
-    item.appendChild(tempDisplay);
-    item.appendChild(title);
-
-    return item;
-}
-
-function createRainChanceCard(weatherId, cloudCover) {
-    const item = document.createElement("div");
-    item.className = "forecast-item";
-
-    const bar = document.createElement("div");
-    bar.className = "forecast-bar";
-
-    const fill = document.createElement("div");
-    fill.className = "forecast-fill";
-
-    let rainChance = 0;
-
-    if (weatherId >= 200 && weatherId < 300) rainChance = 90;
-    else if (weatherId >= 500 && weatherId < 600) rainChance = 70;
-    else if (weatherId >= 300 && weatherId < 400) rainChance = 40;
-    else rainChance = Math.min(30, Math.round(cloudCover * 0.3));
-
-    const barHeight = Math.max(10, Math.min(90, rainChance));
-
-    if (rainChance >= 60) fill.classList.add("high");
-    else if (rainChance >= 30) fill.classList.add("medium");
-    else fill.classList.add("low");
-
-    fill.style.height = barHeight + "%";
-    bar.appendChild(fill);
-
-    const icon = document.createElement("div");
-    icon.className = "forecast-icon";
-    icon.textContent = getWeatherIcon(weatherId, cloudCover);
-
-    const rainDisplay = document.createElement("div");
-    rainDisplay.className = "forecast-temp";
-    rainDisplay.textContent = rainChance + "%";
-
-    const title = document.createElement("div");
-    title.className = "forecast-title";
-    title.textContent = "โอกาสฝน";
-
-    item.title = `โอกาสฝนตก: ${rainChance}%`;
-
-    item.appendChild(bar);
-    item.appendChild(icon);
-    item.appendChild(rainDisplay);
-    item.appendChild(title);
-
-    return item;
-}
-
-// NEW: Wind Speed Card
-function createWindSpeedCard(windSpeed) {
-    const item = document.createElement("div");
-    item.className = "forecast-item";
-
-    const bar = document.createElement("div");
-    bar.className = "forecast-bar";
-
-    const fill = document.createElement("div");
-    fill.className = "forecast-fill";
-
-    const windKmh = windSpeed * 3.6;
-    const barHeight = Math.max(10, Math.min(90, (windKmh / 70) * 100));
-
-    if (windKmh > 50) fill.classList.add("high");
-    else if (windKmh > 25) fill.classList.add("medium");
-    else fill.classList.add("low");
-
-    fill.style.height = barHeight + "%";
-    bar.appendChild(fill);
-
-    const icon = document.createElement("div");
-    icon.className = "forecast-icon";
-    icon.textContent = "💨";
-
-    const windDisplay = document.createElement("div");
-    windDisplay.className = "forecast-temp";
-    windDisplay.textContent = windKmh.toFixed(0) + " km/h";
-
-    const title = document.createElement("div");
-    title.className = "forecast-title";
-    title.textContent = "ลม";
-
-    item.title = `ความเร็วลม: ${windKmh.toFixed(1)} km/h`;
-
-    item.appendChild(bar);
-    item.appendChild(icon);
-    item.appendChild(windDisplay);
-    item.appendChild(title);
-
-    return item;
-}
-
-function updateForecast(forecastArray) {
-    if (isUpdatingForecast) return;
+    isUpdatingForecast = true;
+    forecastUpdateTimeouts.forEach(timeout => clearTimeout(timeout));
+    forecastUpdateTimeouts = [];
 
     const containerToday = document.getElementById("forecastContainerToday");
     const containerTomorrow = document.getElementById("forecastContainerTomorrow");
-    if (!containerToday || !containerTomorrow) return;
 
-    isUpdatingForecast = true;
-
-    forecastUpdateTimeouts.forEach(t => clearTimeout(t));
-    forecastUpdateTimeouts = [];
-
-    containerToday.innerHTML = "";
-    containerTomorrow.innerHTML = "";
-
-    const cardsToday = [];
-    const cardsTomorrow = [];
-
-    // TODAY - Now includes Wind Speed
-    cardsToday.push({ card: createHumidityCard(weatherData.humidity), index: 0 });
-    cardsToday.push({ card: createTemperatureCard(weatherData.currentTemp), index: 1 });
-    cardsToday.push({ card: createRainChanceCard(weatherData.weatherCode, weatherData.cloudCover), index: 2 });
-    cardsToday.push({ card: createWindSpeedCard(weatherData.windSpeed), index: 3 });
-
-    // TOMORROW
-    if (forecastArray && forecastArray.length > 0) {
-        const tomorrow = forecastArray[0];
-        cardsTomorrow.push({ card: createHumidityCard(tomorrow.humidity), index: 0 });
-        cardsTomorrow.push({ card: createTemperatureCard(tomorrow.temp), index: 1 });
-        cardsTomorrow.push({ card: createRainChanceCard(tomorrow.weatherCode, tomorrow.cloudCover), index: 2 });
-        if (tomorrow.windSpeed !== undefined) {
-            cardsTomorrow.push({ card: createWindSpeedCard(tomorrow.windSpeed), index: 3 });
-        }
+    if (!containerToday || !containerTomorrow) {
+        isUpdatingForecast = false;
+        return;
     }
 
-    cardsToday.forEach(({ card, index }) => {
-        card.style.opacity = "0";
-        card.style.transform = "translateY(20px)";
-        containerToday.appendChild(card);
+    const todayForecasts = [];
+    const tomorrowForecasts = [];
 
-        const tid = setTimeout(() => {
-            card.style.transition = "all 0.4s ease";
-            card.style.opacity = "1";
-            card.style.transform = "translateY(0)";
+    weatherData.forecast.forEach(item => {
+        const date = new Date(item.dt * 1000);
+        const dateStr = date.toLocaleDateString();
+
+        if (dateStr === todayStr) {
+            todayForecasts.push(item);
+        } else if (dateStr === tomorrowStr) {
+            tomorrowForecasts.push(item);
+        }
+    });
+
+    containerToday.innerHTML = '';
+    containerTomorrow.innerHTML = '';
+
+    todayForecasts.slice(0, 4).forEach((item, index) => {
+        const timeout = setTimeout(() => {
+            const forecastCard = createForecastCard(item);
+            containerToday.appendChild(forecastCard);
         }, index * 100);
-
-        forecastUpdateTimeouts.push(tid);
+        forecastUpdateTimeouts.push(timeout);
     });
 
-    cardsTomorrow.forEach(({ card, index }) => {
-        card.style.opacity = "0";
-        card.style.transform = "translateY(20px)";
-        containerTomorrow.appendChild(card);
-
-        const tid = setTimeout(() => {
-            card.style.transition = "all 0.4s ease";
-            card.style.opacity = "1";
-            card.style.transform = "translateY(0)";
-        }, (cardsToday.length + index) * 100);
-
-        forecastUpdateTimeouts.push(tid);
+    tomorrowForecasts.slice(0, 4).forEach((item, index) => {
+        const timeout = setTimeout(() => {
+            const forecastCard = createForecastCard(item);
+            containerTomorrow.appendChild(forecastCard);
+        }, (todayForecasts.length + index) * 100);
+        forecastUpdateTimeouts.push(timeout);
     });
 
-    const unlockTimeout = setTimeout(() => {
+    const finishTimeout = setTimeout(() => {
         isUpdatingForecast = false;
-    }, (cardsToday.length + cardsTomorrow.length) * 100 + 500);
+    }, (todayForecasts.length + tomorrowForecasts.length) * 100 + 200);
+    forecastUpdateTimeouts.push(finishTimeout);
+}
 
-    forecastUpdateTimeouts.push(unlockTimeout);
+function createForecastCard(item) {
+    const div = document.createElement('div');
+    div.className = 'forecast-item';
+
+    const date = new Date(item.dt * 1000);
+    const time = date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const temp = Math.round(item.main.temp);
+    const icon = getWeatherIcon(item.weather[0].id);
+    const rainChance = item.pop ? Math.round(item.pop * 100) : 0;
+
+    div.innerHTML = `
+        <div class="forecast-time">${time}</div>
+        <div class="forecast-icon">${icon}</div>
+        <div class="forecast-temp">${temp}°</div>
+        <div class="forecast-rain">💧 ${rainChance}%</div>
+    `;
+
+    return div;
 }
 
 // ==========================================
-// GPS LOCATION (NO IP TRACKING)
+// NETWORK PERFORMANCE
+// ==========================================
+
+async function checkNetworkPerformance() {
+    const startTime = performance.now();
+
+    try {
+        await fetch('https://www.google.com', { mode: 'no-cors' });
+        const endTime = performance.now();
+        
+        networkStats.ping = Math.round(endTime - startTime);
+        updateNetworkStats(networkStats.delay, networkStats.ping);
+    } catch (error) {
+        networkStats.ping = 999;
+        updateNetworkStats(networkStats.delay, 999);
+    }
+}
+
+// ==========================================
+// LOCATION DETECTION
 // ==========================================
 
 async function detectUserLocation() {
-    console.log("📍 Requesting GPS location...");
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            console.warn("Geolocation not supported");
+            resolve();
+            return;
+        }
 
-    if (!navigator.geolocation) {
-        showToast("❌ Browser ไม่รองรับการขอตำแหน่ง", "error");
-        return null;
-    }
-
-    showToast("📍 กำลังขออนุญาตตำแหน่ง...", "info");
-
-    return new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
-            async (pos) => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
+            async (position) => {
+                LOCATION.lat = position.coords.latitude;
+                LOCATION.lon = position.coords.longitude;
 
-                LOCATION.lat = lat;
-                LOCATION.lon = lon;
-                LOCATION.name = `ตำแหน่งของคุณ (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
-                cityName = LOCATION.name;
+                try {
+                    const url = `https://api.openweathermap.org/geo/1.0/reverse?lat=${LOCATION.lat}&lon=${LOCATION.lon}&limit=1&appid=${OPENWEATHER_API_KEY}`;
+                    const response = await fetch(url);
+                    const data = await response.json();
 
-                localStorage.setItem("locationLat", lat.toString());
-                localStorage.setItem("locationLon", lon.toString());
-                localStorage.setItem("locationName", LOCATION.name);
-                localStorage.setItem("locationSource", "gps");
+                    if (data.length > 0) {
+                        LOCATION.name = data[0].name || data[0].local_names?.th || "Unknown";
+                    }
+                } catch (error) {
+                    console.error("Error reverse geocoding:", error);
+                }
 
-                showToast("✅ ใช้ตำแหน่งของคุณแล้ว", "success");
-
-                await fetchWeatherData();
-                resolve({ lat, lon, name: LOCATION.name, source: "gps" });
+                console.log(`📍 Location detected: ${LOCATION.name} (${LOCATION.lat}, ${LOCATION.lon})`);
+                resolve();
             },
-            (err) => {
-                console.warn("❌ GPS location failed:", err);
-
-                if (err.code === 1) showToast("❌ คุณปฏิเสธการขอตำแหน่ง", "error");
-                else if (err.code === 2) showToast("❌ ไม่สามารถระบุตำแหน่งได้", "error");
-                else if (err.code === 3) showToast("❌ ขอพิกัดนานเกินไป (Timeout)", "error");
-                else showToast("❌ ขอพิกัดล้มเหลว", "error");
-
-                resolve(null);
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
+            (error) => {
+                console.warn("Location detection failed:", error.message);
+                resolve();
             }
         );
     });
 }
 
 // ==========================================
-// OPENWEATHERMAP FETCH (CURRENT + FORECAST + UV)
+// SETTINGS
 // ==========================================
 
-async function fetchWeatherData() {
-    try {
-        if (!OPENWEATHER_API_KEY || OPENWEATHER_API_KEY === "PUT_YOUR_KEY_HERE") {
-            showToast("❌ กรุณาใส่ OpenWeather API Key", "error");
-            return;
-        }
+function openSettings() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.classList.add('show');
 
-        console.log("🌤️ Fetching weather from OpenWeatherMap...");
+        const latInput = document.getElementById('settingLat');
+        const lonInput = document.getElementById('settingLon');
+        const cityInput = document.getElementById('settingCityName');
+        const intervalInput = document.getElementById('settingUpdateInterval');
 
-        // Current Weather
-        const currentUrl =
-            `https://api.openweathermap.org/data/2.5/weather?lat=${LOCATION.lat}&lon=${LOCATION.lon}` +
-            `&appid=${OPENWEATHER_API_KEY}&units=metric&lang=th`;
-
-        const startTime = performance.now();
-        const currentRes = await fetch(currentUrl);
-        const endTime = performance.now();
-
-        networkStats.delay = endTime - startTime;
-        networkStats.ping = Math.round(networkStats.delay);
-
-        if (!currentRes.ok) throw new Error("OpenWeather current error");
-
-        const currentData = await currentRes.json();
-
-        weatherData.currentTemp = currentData.main.temp;
-        weatherData.feelsLike = currentData.main.feels_like;
-        weatherData.humidity = currentData.main.humidity;
-        weatherData.pressure = currentData.main.pressure;
-        weatherData.cloudCover = currentData.clouds?.all || 0;
-        weatherData.weatherCode = currentData.weather?.[0]?.id || 0;
-        weatherData.weatherDescription = currentData.weather?.[0]?.description || "";
-        weatherData.windSpeed = currentData.wind?.speed || 0;
-        weatherData.windDeg = currentData.wind?.deg || 0;
-        weatherData.visibility = currentData.visibility || 10000;
-        weatherData.sunrise = currentData.sys?.sunrise || 0;
-        weatherData.sunset = currentData.sys?.sunset || 0;
-
-        // Fetch UV Index (requires OneCall API or separate UV endpoint)
-        // Note: UV data might require a different API endpoint or OneCall API
-        try {
-            const uvUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${LOCATION.lat}&lon=${LOCATION.lon}&appid=${OPENWEATHER_API_KEY}`;
-            const uvRes = await fetch(uvUrl);
-            if (uvRes.ok) {
-                const uvData = await uvRes.json();
-                weatherData.uvIndex = uvData.value || 0;
-            }
-        } catch (uvError) {
-            console.warn("UV data not available:", uvError);
-            weatherData.uvIndex = 0;
-        }
-
-        updateMainTemp(weatherData.currentTemp);
-        updateAdvancedWeatherInfo();
-        checkWeatherAlerts();
-
-        // Forecast (3-hour intervals)
-        const forecastUrl =
-            `https://api.openweathermap.org/data/2.5/forecast?lat=${LOCATION.lat}&lon=${LOCATION.lon}` +
-            `&appid=${OPENWEATHER_API_KEY}&units=metric&lang=th`;
-
-        const forecastRes = await fetch(forecastUrl);
-        if (!forecastRes.ok) throw new Error("OpenWeather forecast error");
-
-        const forecastData = await forecastRes.json();
-
-        // หา "พรุ่งนี้" จาก list (เลือกช่วงเที่ยง)
-        const tomorrowForecast = getTomorrowForecast(forecastData.list);
-
-        weatherData.forecast = tomorrowForecast ? [tomorrowForecast] : [];
-
-        updateForecast(weatherData.forecast);
-
-        updateNetworkStats(networkStats.delay, networkStats.ping);
-
-        console.log("✅ Weather Updated:", weatherData);
-
-    } catch (error) {
-        console.error("❌ Weather fetch error:", error);
-
-        const mainTemp = document.getElementById("mainTemp");
-        if (mainTemp) mainTemp.textContent = "--";
-
-        updateNetworkStats(0, 999);
-        showToast("❌ ดึงข้อมูลอากาศล้มเหลว", "error");
+        if (latInput) latInput.value = LOCATION.lat;
+        if (lonInput) lonInput.value = LOCATION.lon;
+        if (cityInput) cityInput.value = cityName;
+        if (intervalInput) intervalInput.value = updateIntervalMinutes;
     }
 }
 
-// เอา forecast ของ "พรุ่งนี้" (เลือกเวลาประมาณ 12:00)
-function getTomorrowForecast(list) {
-    if (!list || list.length === 0) return null;
-
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-
-    const tomorrowDateStr = tomorrow.toISOString().split("T")[0];
-
-    // filter เฉพาะของพรุ่งนี้
-    const tomorrowList = list.filter(item => item.dt_txt.startsWith(tomorrowDateStr));
-    if (tomorrowList.length === 0) return null;
-
-    // เลือกช่วง 12:00 ถ้ามี
-    let best = tomorrowList.find(item => item.dt_txt.includes("12:00:00"));
-
-    // ถ้าไม่มี เลือกอันกลาง ๆ
-    if (!best) best = tomorrowList[Math.floor(tomorrowList.length / 2)];
-
-    return {
-        temp: best.main.temp,
-        humidity: best.main.humidity,
-        cloudCover: best.clouds?.all || 0,
-        weatherCode: best.weather?.[0]?.id || 0,
-        windSpeed: best.wind?.speed || 0,
-        date: best.dt_txt
-    };
-}
-
-// ==========================================
-// NETWORK PERFORMANCE CHECK
-// ==========================================
-
-async function checkNetworkPerformance() {
-    try {
-        const startTime = performance.now();
-
-        await fetch("https://api.openweathermap.org", {
-            method: "HEAD"
-        });
-
-        const endTime = performance.now();
-        const ping = Math.round(endTime - startTime);
-
-        networkStats.ping = ping;
-        networkStats.delay = ping / 2;
-
-        updateNetworkStats(networkStats.delay, networkStats.ping);
-
-    } catch (error) {
-        console.warn("⚠️ Network check failed:", error);
-        updateNetworkStats(0, 999);
+function closeSettings() {
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.classList.remove('show');
     }
 }
-
-// ==========================================
-// THEME SYSTEM
-// ==========================================
 
 function selectTheme(theme) {
     currentTheme = theme;
+    document.body.className = `${theme}-theme`;
+    
+    const options = document.querySelectorAll('.theme-option');
+    options.forEach(opt => opt.classList.remove('active'));
+    document.querySelector(`[data-theme="${theme}"]`)?.classList.add('active');
 
-    const themeOptions = document.querySelectorAll(".theme-option");
-    themeOptions.forEach(option => option.classList.remove("active"));
-
-    const selectedOption = document.querySelector(`[data-theme="${theme}"]`);
-    if (selectedOption) selectedOption.classList.add("active");
-
-    document.body.classList.remove("dark-theme", "light-theme", "galaxy-theme");
-    document.body.classList.add(`${theme}-theme`);
-
-    localStorage.setItem("theme", theme);
+    localStorage.setItem('theme', theme);
+    showToast(`เปลี่ยนธีมเป็น ${theme} mode`, "success");
 }
 
-function loadTheme() {
-    const savedTheme = localStorage.getItem("theme") || "dark";
-    selectTheme(savedTheme);
+function toggleAutoDetect() {
+    autoDetectLocation = !autoDetectLocation;
+    
+    const toggle = document.getElementById('autoDetectToggle');
+    const status = document.getElementById('autoDetectStatus');
+    const cityInputContainer = document.getElementById('cityInputContainer');
+
+    if (toggle) {
+        if (autoDetectLocation) {
+            toggle.classList.add('active');
+            if (status) status.textContent = "เปิดอยู่";
+            if (cityInputContainer) cityInputContainer.classList.remove('show');
+        } else {
+            toggle.classList.remove('active');
+            if (status) status.textContent = "ปิดอยู่";
+            if (cityInputContainer) cityInputContainer.classList.add('show');
+        }
+    }
 }
 
-// ==========================================
-// SETTINGS LOAD/SAVE
-// ==========================================
+function toggleAutoUpdate() {
+    autoUpdateEnabled = !autoUpdateEnabled;
+    
+    const toggle = document.getElementById('autoUpdateToggle');
+    const status = document.getElementById('autoUpdateStatus');
 
-function loadSettings() {
-    const savedAutoDetect = localStorage.getItem("autoDetectLocation");
-    const savedCityName = localStorage.getItem("cityName");
-    const savedInterval = localStorage.getItem("updateInterval");
-    const savedLat = localStorage.getItem("locationLat");
-    const savedLon = localStorage.getItem("locationLon");
-    const savedLocationName = localStorage.getItem("locationName");
-
-    if (savedLat && savedLon) {
-        LOCATION.lat = parseFloat(savedLat);
-        LOCATION.lon = parseFloat(savedLon);
-
-        if (savedLocationName) LOCATION.name = savedLocationName;
-    }
-
-    if (savedAutoDetect !== null) {
-        autoDetectLocation = savedAutoDetect === "true";
-    }
-
-    if (savedCityName) {
-        cityName = savedCityName;
-    }
-
-    if (savedInterval) {
-        updateIntervalMinutes = parseInt(savedInterval);
-    }
-
-    if (autoDetectLocation && (!savedLat || !savedLon)) {
-        detectUserLocation();
+    if (toggle) {
+        if (autoUpdateEnabled) {
+            toggle.classList.add('active');
+            if (status) status.textContent = "เปิดอยู่";
+            startAutoUpdate();
+        } else {
+            toggle.classList.remove('active');
+            if (status) status.textContent = "ปิดอยู่";
+            stopAutoUpdate();
+        }
     }
 }
 
 async function saveSettings() {
-    const latInput = document.getElementById("settingLat");
-    const lonInput = document.getElementById("settingLon");
-    const intervalInput = document.getElementById("settingUpdateInterval");
+    const latInput = document.getElementById('settingLat');
+    const lonInput = document.getElementById('settingLon');
+    const cityInput = document.getElementById('settingCityName');
+    const intervalInput = document.getElementById('settingUpdateInterval');
 
-    const newInterval = parseInt(intervalInput.value);
-
-    if (isNaN(newInterval) || newInterval < 1) {
-        showToast("❌ ช่วงเวลาอัพเดทต้องมากกว่า 0 นาที", "error");
-        return;
+    if (cityInput?.value && !autoDetectLocation) {
+        cityName = cityInput.value;
+        await geocodeCity(cityName);
+    } else if (latInput?.value && lonInput?.value && !autoDetectLocation) {
+        LOCATION.lat = parseFloat(latInput.value);
+        LOCATION.lon = parseFloat(lonInput.value);
     }
 
-    updateIntervalMinutes = newInterval;
-
-    const newLat = parseFloat(latInput.value);
-    const newLon = parseFloat(lonInput.value);
-
-    if (isNaN(newLat) || newLat < -90 || newLat > 90) {
-        showToast("❌ Latitude ไม่ถูกต้อง", "error");
-        return;
+    if (intervalInput?.value) {
+        updateIntervalMinutes = parseInt(intervalInput.value);
+        stopAutoUpdate();
+        startAutoUpdate();
     }
 
-    if (isNaN(newLon) || newLon < -180 || newLon > 180) {
-        showToast("❌ Longitude ไม่ถูกต้อง", "error");
-        return;
-    }
+    localStorage.setItem('settings', JSON.stringify({
+        theme: currentTheme,
+        autoDetectLocation,
+        cityName,
+        lat: LOCATION.lat,
+        lon: LOCATION.lon,
+        updateIntervalMinutes
+    }));
 
-    LOCATION.lat = newLat;
-    LOCATION.lon = newLon;
-    LOCATION.name = `ตำแหน่งกำหนดเอง (${newLat.toFixed(4)}, ${newLon.toFixed(4)})`;
-
-    localStorage.setItem("autoDetectLocation", autoDetectLocation);
-    localStorage.setItem("cityName", cityName);
-    localStorage.setItem("updateInterval", updateIntervalMinutes.toString());
-    localStorage.setItem("locationLat", LOCATION.lat.toString());
-    localStorage.setItem("locationLon", LOCATION.lon.toString());
-    localStorage.setItem("locationName", LOCATION.name);
-
-    if (autoUpdateEnabled) startAutoUpdate();
-
-    showToast("💾 บันทึกการตั้งค่าสำเร็จ!", "success");
     closeSettings();
+    showToast("💾 บันทึกการตั้งค่าสำเร็จ", "success");
 
     setTimeout(() => {
-        refreshWeatherData();
+        fetchWeatherData();
     }, 500);
 }
 
-// ==========================================
-// SETTINGS MODAL
-// ==========================================
+async function geocodeCity(city) {
+    try {
+        const url = `https://api.openweathermap.org/geo/1.0/direct?q=${city}&limit=1&appid=${OPENWEATHER_API_KEY}`;
+        const response = await fetch(url);
+        const data = await response.json();
 
-function openSettings() {
-    const modal = document.getElementById("settingsModal");
-    const latInput = document.getElementById("settingLat");
-    const lonInput = document.getElementById("settingLon");
-    const intervalInput = document.getElementById("settingUpdateInterval");
-
-    if (!modal) return;
-
-    if (latInput) latInput.value = LOCATION.lat;
-    if (lonInput) lonInput.value = LOCATION.lon;
-    if (intervalInput) intervalInput.value = updateIntervalMinutes;
-
-    modal.classList.add("show");
-
-    modal.addEventListener("click", function (e) {
-        if (e.target === modal) closeSettings();
-    });
+        if (data.length > 0) {
+            LOCATION.lat = data[0].lat;
+            LOCATION.lon = data[0].lon;
+            LOCATION.name = data[0].name;
+            showToast(`📍 พบตำแหน่ง: ${LOCATION.name}`, "success");
+        } else {
+            showToast("❌ ไม่พบเมืองที่ระบุ", "error");
+        }
+    } catch (error) {
+        console.error("Geocoding error:", error);
+        showToast("⚠️ เกิดข้อผิดพลาดในการค้นหาตำแหน่ง", "error");
+    }
 }
 
-function closeSettings() {
-    const modal = document.getElementById("settingsModal");
-    if (modal) modal.classList.remove("show");
+function loadSettings() {
+    const savedSettings = localStorage.getItem('settings');
+    if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        currentTheme = settings.theme || 'dark';
+        autoDetectLocation = settings.autoDetectLocation !== false;
+        cityName = settings.cityName || '';
+        updateIntervalMinutes = settings.updateIntervalMinutes || 5;
+
+        if (!autoDetectLocation && settings.lat && settings.lon) {
+            LOCATION.lat = settings.lat;
+            LOCATION.lon = settings.lon;
+        }
+
+        document.body.className = `${currentTheme}-theme`;
+    }
 }
 
-function toggleAutoDetect() {
-    const toggle = document.getElementById("autoDetectToggle");
-    const status = document.getElementById("autoDetectStatus");
-
-    autoDetectLocation = !autoDetectLocation;
-
-    if (toggle) toggle.classList.toggle("active");
-    if (status) status.textContent = autoDetectLocation ? "เปิดอยู่" : "ปิดอยู่";
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        currentTheme = savedTheme;
+        document.body.className = `${currentTheme}-theme`;
+    }
 }
 
 // ==========================================
@@ -967,43 +1175,29 @@ function toggleAutoDetect() {
 // ==========================================
 
 function startAutoUpdate() {
+    if (!autoUpdateEnabled) return;
+
     stopAutoUpdate();
 
     autoUpdateInterval = setInterval(() => {
-        if (autoUpdateEnabled) {
-            fetchWeatherData();
-            checkNetworkPerformance();
-        }
-    }, updateIntervalMinutes * 60000);
+        console.log("🔄 Auto update triggered");
+        fetchWeatherData();
+        checkNetworkPerformance();
+    }, updateIntervalMinutes * 60 * 1000);
+
+    console.log(`✅ Auto update enabled (every ${updateIntervalMinutes} minutes)`);
 }
 
 function stopAutoUpdate() {
     if (autoUpdateInterval) {
         clearInterval(autoUpdateInterval);
         autoUpdateInterval = null;
-    }
-}
-
-function toggleAutoUpdate() {
-    const toggle = document.getElementById("autoUpdateToggle");
-    const status = document.getElementById("autoUpdateStatus");
-
-    autoUpdateEnabled = !autoUpdateEnabled;
-
-    if (toggle) toggle.classList.toggle("active");
-    if (status) status.textContent = autoUpdateEnabled ? "เปิดอยู่" : "ปิดอยู่";
-
-    if (autoUpdateEnabled) {
-        startAutoUpdate();
-        showToast("✅ เปิดการอัพเดทอัตโนมัติ", "success");
-    } else {
-        stopAutoUpdate();
-        showToast("⏸️ ปิดการอัพเดทอัตโนมัติ", "info");
+        console.log("❌ Auto update stopped");
     }
 }
 
 // ==========================================
-// ACTION BUTTONS
+// ACTIONS
 // ==========================================
 
 async function refreshWeatherData() {
@@ -1015,12 +1209,13 @@ async function refreshWeatherData() {
 
     try {
         showToast("🔄 กำลังดึงข้อมูลใหม่...", "info");
+        
         await fetchWeatherData();
         await checkNetworkPerformance();
-        showToast("✅ ดึงข้อมูลสำเร็จ!", "success");
-    } catch (error) {
-        showToast("❌ เกิดข้อผิดพลาดในการดึงข้อมูล", "error");
-        console.error("Error refreshing data:", error);
+
+    } catch (err) {
+        console.error("Refresh Error:", err);
+        showToast("⚠️ เกิดข้อผิดพลาด", "error");
     } finally {
         if (btn) {
             btn.classList.remove("loading");
@@ -1045,7 +1240,8 @@ function resetAPI() {
             uvIndex: 0,
             sunrise: 0,
             sunset: 0,
-            forecast: []
+            forecast: [],
+            forecast7days: []
         };
 
         networkStats = {
@@ -1069,10 +1265,6 @@ function resetAPI() {
             checkNetworkPerformance();
         }, 500);
     }
-}
-
-function forceDownload() {
-    showToast("💻 ฟีเจอร์นี้กำลังพัฒนา", "info");
 }
 
 // ==========================================
@@ -1238,6 +1430,7 @@ function displayWeatherInfo() {
     console.log(`🌡️ Pressure: ${weatherData.pressure} hPa`);
     console.log(`☀️ UV Index: ${weatherData.uvIndex}`);
     console.log(`👁️ Visibility: ${(weatherData.visibility/1000).toFixed(1)} km`);
+    console.log(`🌫️ AQI: ${aqiData.aqi}`);
     console.log(`📶 Ping: ${networkStats.ping} ms`);
     console.log(`⏱️ Delay: ${networkStats.delay.toFixed(1)} ms`);
     console.log("=".repeat(50));
@@ -1248,7 +1441,7 @@ function displayWeatherInfo() {
 // ==========================================
 
 async function initApp() {
-    console.log("⛈️ Storm Checker Pro Starting...");
+    console.log("⛈️ Storm Checker Pro Premium v2.0 Starting...");
 
     loadTheme();
     loadSettings();
